@@ -28,35 +28,52 @@ char** tokenize(char* cmdline) {
     char** arglist = (char**)malloc(sizeof(char*) * (MAXARGS + 1));
     for (int i = 0; i < MAXARGS + 1; i++) {
         arglist[i] = (char*)malloc(sizeof(char) * ARGLEN);
-        bzero(arglist[i], ARGLEN);
+        memset(arglist[i], 0, ARGLEN);
     }
 
     char* cp = cmdline;
-    char* start;
-    int len;
     int argnum = 0;
 
     while (*cp != '\0' && argnum < MAXARGS) {
-        while (*cp == ' ' || *cp == '\t') cp++; // Skip leading whitespace
+        while (*cp == ' ' || *cp == '\t') cp++;      // Skip whitespace
+        if (*cp == '\0') break;
 
-        if (*cp == '\0') break; // Line was only whitespace
-
-        start = cp;
-        len = 1;
-        while (*++cp != '\0' && !(*cp == ' ' || *cp == '\t')) {
-            len++;
+        /* Operators are tokens of their own: < > | */
+        if (*cp == '<' || *cp == '>' || *cp == '|') {
+            arglist[argnum][0] = *cp;
+            arglist[argnum][1] = '\0';
+            argnum++;
+            cp++;
+            continue;
         }
-        strncpy(arglist[argnum], start, len);
+
+        /* Ordinary word; quotes group characters and are stripped */
+        int len = 0;
+        char quote = 0;
+        while (*cp != '\0') {
+            if (quote) {
+                if (*cp == quote) { quote = 0; cp++; continue; }
+            } else {
+                if (*cp == '"' || *cp == '\'') { quote = *cp; cp++; continue; }
+                if (*cp == ' ' || *cp == '\t' || *cp == '<' || *cp == '>' || *cp == '|')
+                    break;
+            }
+            if (len < ARGLEN - 1)
+                arglist[argnum][len++] = *cp;
+            cp++;
+        }
         arglist[argnum][len] = '\0';
         argnum++;
     }
 
     if (argnum == 0) { // No arguments were parsed
-        for(int i = 0; i < MAXARGS + 1; i++) free(arglist[i]);
+        for (int i = 0; i < MAXARGS + 1; i++) free(arglist[i]);
         free(arglist);
         return NULL;
     }
 
+    /* Free the unused slots so nothing leaks, then terminate the list */
+    for (int i = argnum; i < MAXARGS + 1; i++) free(arglist[i]);
     arglist[argnum] = NULL;
     return arglist;
 }

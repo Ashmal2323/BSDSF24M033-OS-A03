@@ -10,10 +10,18 @@
 #include <errno.h>
 
 #define MAX_LEN 512
-#define MAXARGS 10
-#define ARGLEN 30
+#define MAXARGS 64
+#define ARGLEN 256
 #define PROMPT "FCIT> "
 #define HISTORY_SIZE 20
+#define MAX_STAGES 16
+
+/* One stage of a pipeline: a command plus optional redirections */
+typedef struct {
+    char* argv[MAXARGS + 1];
+    char* infile;     /* file after '<', or NULL */
+    char* outfile;    /* file after '>', or NULL */
+} command_t;
 
 // Function prototypes
 char* read_cmd(char* prompt, FILE* fp);
@@ -26,5 +34,9 @@ void init_readline(void);
 void add_to_history(const char* cmd);
 void print_history(void);
 char* get_history(int n);
+
+// Pipeline / redirection
+int parse_pipeline(char** arglist, command_t cmds[], int* ncmds);
+int execute_pipeline(command_t cmds[], int ncmds);
 
 #endif // SHELL_H

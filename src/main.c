@@ -8,8 +8,6 @@ int main() {
 
     init_readline();
 
-    /* readline() prints the prompt, handles editing, Tab and arrow keys.
-       It returns NULL on Ctrl+D. */
     while ((cmdline = readline(PROMPT)) != NULL) {
 
         /* Handle !n BEFORE tokenizing and BEFORE adding to history */
@@ -32,8 +30,16 @@ int main() {
             add_history(cmdline);            /* readline's history (arrow keys) */
             add_to_history(cmdline);         /* our own history (history, !n) */
 
-            if (!handle_builtin(arglist)) {
-                execute(arglist);
+            command_t cmds[MAX_STAGES];
+            int ncmds = 0;
+
+            if (parse_pipeline(arglist, cmds, &ncmds) == 0) {
+                /* A plain command (no pipe, no redirection) may be a built-in
+                   that must run in the shell process itself (cd, exit, ...) */
+                int simple = (ncmds == 1 && cmds[0].infile == NULL
+                                         && cmds[0].outfile == NULL);
+                if (!(simple && handle_builtin(cmds[0].argv)))
+                    execute_pipeline(cmds, ncmds);
             }
 
             // Free the memory allocated by tokenize()
