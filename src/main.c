@@ -4,6 +4,18 @@
 
 #define MAX_BLOCK 64
 
+/* Replace a token like $NAME by its value (new memory, old one freed).
+   Returns 1 if the result is empty, so the caller can drop the token. */
+static int expand_token(char** tok) {
+    if ((*tok)[0] != '$' || (*tok)[1] == '\0')
+        return 0;
+    const char* val = get_var(*tok + 1);
+    char* repl = strdup(val ? val : "");
+    free(*tok);
+    *tok = repl;
+    return repl[0] == '\0';
+}
+
 /* Run one command (possibly a pipeline). Returns its exit status. */
 static int run_segment(char** seg, int bg) {
     command_t cmds[MAX_STAGES];
@@ -12,9 +24,23 @@ static int run_segment(char** seg, int bg) {
     if (parse_pipeline(seg, cmds, &ncmds) != 0)
         return 1;
 
+    int simple = (ncmds == 1 && cmds[0].infile == NULL && cmds[0].outfile == NULL);
+
+    /* NAME=value is a built-in action: no fork, the shell stores it itself */
+    if (!bg && simple && is_assignment(cmds[0].argv[0])) {
+        for (int i = 0; cmds[0].argv[i] != NULL; i++) {
+            if (!is_assignment(cmds[0].argv[i])) {
+                fprintf(stderr, "%s: a command cannot follow an assignment\n",
+                        cmds[0].argv[i]);
+                return 1;
+            }
+            assign_var(cmds[0].argv[i]);
+        }
+        return 0;
+    }
+
     /* A plain foreground command may be a built-in that must run
        in the shell process itself (cd, exit, ...) */
-    int simple = (ncmds == 1 && cmds[0].infile == NULL && cmds[0].outfile == NULL);
     if (!bg && simple && handle_builtin(cmds[0].argv))
         return 0;
 
@@ -30,7 +56,7 @@ static int run_segment(char** seg, int bg) {
     return execute_pipeline(cmds, ncmds, bg, label);
 }
 
-/* Split the token list at ';' and '&', run each part in order.
+/* Split the token list at ';' and '&', expand variables, run each part in order.
    Returns the exit status of the last command run. */
 static int run_line(char** arglist) {
     char* seg[MAXARGS + 1];
@@ -54,7 +80,10 @@ static int run_line(char** arglist) {
             if (tok == NULL)
                 break;
         } else {
-            seg[n++] = tok;
+            /* Variable expansion happens here, after tokenizing and
+               before the segment runs */
+            if (!expand_token(&arglist[i]))
+                seg[n++] = arglist[i];
         }
     }
     return status;

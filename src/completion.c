@@ -2,7 +2,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-static const char* builtins[] = {"cd", "exit", "help", "history", "jobs", NULL};
+static const char* builtins[] = {"cd", "exit", "help", "history", "jobs", "set", NULL};
 
 /* Called repeatedly by readline; returns one matching built-in per call */
 static char* builtin_generator(const char* text, int state) {
