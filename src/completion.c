@@ -31,4 +31,5 @@ static char** shell_completion(const char* text, int start, int end) {
 
 void init_readline(void) {
     rl_attempted_completion_function = shell_completion;
+    rl_variable_bind("enable-bracketed-paste", "off");
 }
