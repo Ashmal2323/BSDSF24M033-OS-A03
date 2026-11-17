@@ -39,7 +39,7 @@ char** tokenize(char* cmdline) {
         if (*cp == '\0') break;
 
         /* Operators are tokens of their own: < > | */
-        if (*cp == '<' || *cp == '>' || *cp == '|') {
+        if (*cp == '<' || *cp == '>' || *cp == '|' || *cp == ';' || *cp == '&') {
             arglist[argnum][0] = *cp;
             arglist[argnum][1] = '\0';
             argnum++;
@@ -55,7 +55,7 @@ char** tokenize(char* cmdline) {
                 if (*cp == quote) { quote = 0; cp++; continue; }
             } else {
                 if (*cp == '"' || *cp == '\'') { quote = *cp; cp++; continue; }
-                if (*cp == ' ' || *cp == '\t' || *cp == '<' || *cp == '>' || *cp == '|')
+                if (*cp == ' ' || *cp == '\t' || *cp == '<' || *cp == '>' || *cp == '|' || *cp == ';' || *cp == '&')
                     break;
             }
             if (len < ARGLEN - 1)
@@ -103,13 +103,13 @@ int handle_builtin(char** arglist) {
         printf("  cd <directory>  - change the current working directory\n");
         printf("  exit            - terminate the shell\n");
         printf("  help            - display this help message\n");
-        printf("  jobs            - list background jobs (not yet implemented)\n");
+        printf("  jobs            - list running background jobs\n");
         printf("  history         - show command history (use !n to re-run command n)\n");
         return 1;
     }
 
     if (strcmp(arglist[0], "jobs") == 0) {
-        printf("Job control not yet implemented.\n");
+        print_jobs();
         return 1;
     }
 

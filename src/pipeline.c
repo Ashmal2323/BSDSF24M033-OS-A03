@@ -1,5 +1,6 @@
 #include "shell.h"
 #include <fcntl.h>
+#include <signal.h>
 
 /* Split the token list into pipeline stages.
    Returns 0 on success, -1 on a syntax error. */
@@ -64,8 +65,10 @@ static void redirect(const char* path, int flags, int target_fd) {
     close(fd);                          /* original fd no longer needed */
 }
 
-/* Run all stages, connected by pipes. Returns the exit status of the last one. */
-int execute_pipeline(command_t cmds[], int ncmds) {
+/* Run all stages, connected by pipes.
+   Foreground: wait and return the last stage's exit status.
+   Background: do not wait, record the job and return 0 at once. */
+int execute_pipeline(command_t cmds[], int ncmds, int background, const char* label) {
     pid_t pids[MAX_STAGES];
     int started = 0;
     int prev_read = -1;                 /* read end of the previous pipe */
@@ -90,6 +93,16 @@ int execute_pipeline(command_t cmds[], int ncmds) {
 
         if (pid == 0) {
             /* ---- child ---- */
+            if (background) {
+                signal(SIGINT, SIG_IGN);            /* Ctrl+C should not kill bg jobs */
+                if (i == 0 && cmds[i].infile == NULL) {
+                    int dn = open("/dev/null", O_RDONLY);   /* bg job must not read the terminal */
+                    if (dn >= 0) {
+                        dup2(dn, STDIN_FILENO);
+                        close(dn);
+                    }
+                }
+            }
             if (prev_read != -1) {                  /* read from previous stage */
                 dup2(prev_read, STDIN_FILENO);
                 close(prev_read);
@@ -121,6 +134,15 @@ int execute_pipeline(command_t cmds[], int ncmds) {
     }
 
     if (prev_read != -1) close(prev_read);          /* only left open after an error */
+
+    if (background) {
+        if (started == 0)
+            return 1;
+        /* Track the last stage; earlier stages are reaped by waitpid(-1) later */
+        int num = add_job(pids[started - 1], label);
+        printf("[%d] %d\n", num, (int)pids[started - 1]);
+        return 0;
+    }
 
     int last_status = 1;
     for (int i = 0; i < started; i++) {

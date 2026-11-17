@@ -37,6 +37,11 @@ char* get_history(int n);
 
 // Pipeline / redirection
 int parse_pipeline(char** arglist, command_t cmds[], int* ncmds);
-int execute_pipeline(command_t cmds[], int ncmds);
+int execute_pipeline(command_t cmds[], int ncmds, int background, const char* label);
+
+// Background jobs
+int add_job(pid_t pid, const char* cmd);
+void reap_jobs(void);
+void print_jobs(void);
 
 #endif // SHELL_H
