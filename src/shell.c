@@ -105,6 +105,7 @@ int handle_builtin(char** arglist) {
         printf("  help            - display this help message\n");
         printf("  jobs            - list running background jobs\n");
         printf("  history         - show command history (use !n to re-run command n)\n");
+        printf("  set             - display all shell variables\n");
         return 1;
     }
 
